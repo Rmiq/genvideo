@@ -23,7 +23,7 @@ export default async function handler(
     });
   
     res.status(200).json(completion.data.choices[0].text);
-  } catch(e){
+  } catch(e:any){
     console.log(e.response.data.error.message);
     return res
       .status(500)
