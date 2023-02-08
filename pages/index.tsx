@@ -15,7 +15,7 @@ const Home: NextPage = () => {
 	const [generatedVideo, setGeneratedVideo] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
 
-	const onSubmit = async (data:any) => {
+	const onSubmit = async (data: any) => {
 		setIsLoading(true);
 		try {
 			const res = await fetch(`/api/generate-text?prompt=${data.prompt}`);
@@ -52,11 +52,15 @@ const Home: NextPage = () => {
 					<input placeholder="i.e. bitcoin" className="input" {...register("prompt", { required: true })} />
 					<input type="submit" className="btn submit my-4" value={isLoading ? "Loading..." : "Generate script"} />
 				</form>
-				<div className="flex flex-col">
-					<p>Generated script:</p>
-					<textarea readOnly={true} className="textarea min-h-[300px]" value={generatedScript} />
-					<p>Generated video:</p>
-					<video controls src={generatedVideo} />
+				<div className="flex">
+					<div className="min-w-[50%] pr-8">
+						<p>Generated script:</p>
+						<textarea readOnly={true} className="textarea w-full min-h-[400px]" value={generatedScript} />
+					</div>
+					<div className="min-w-[50%] pl-8">
+						<p>Generated video:</p>
+						<video controls src={generatedVideo} className="max-w-[400px]" />
+					</div>
 				</div>
 			</main>
 		</div>
