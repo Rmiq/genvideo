@@ -15,7 +15,7 @@ const Home: NextPage = () => {
 	const [generatedVideo, setGeneratedVideo] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
 
-	const onSubmit = async (data) => {
+	const onSubmit = async (data:any) => {
 		setIsLoading(true);
 		try {
 			const res = await fetch(`/api/generate-text?prompt=${data.prompt}`);
