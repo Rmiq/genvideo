@@ -17,7 +17,7 @@ export default async function handler(
   try {
     const completion = await openai.createCompletion({
       model: "text-davinci-003",
-      prompt: `Generate 20s video transcript for ${req.query.prompt} topic. Divide it into 4 section, each section should include the topic`,
+      prompt: `Generate 10s video transcript for ${req.query.prompt} topic. Divide it into 2 section, each section should include the topic`,
       max_tokens: 1024,
       temperature: 0.7
     });
