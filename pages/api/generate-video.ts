@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "pexels";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+
 	const client = createClient(process.env.REACT_APP_PEXELS_API_KEY || "");
 	const query = req.query.topic as string;
 	const orientation = "portrait";
