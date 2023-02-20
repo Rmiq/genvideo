@@ -2,7 +2,7 @@ import Head from "next/head";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { createFFmpeg, fetchFile } from "@ffmpeg/ffmpeg";
-import { GetServerSidePropsContext } from "next/types";
+import { GetServerSidePropsContext, NextPage } from "next/types";
 
 let ffmpegProgress = {};
 
