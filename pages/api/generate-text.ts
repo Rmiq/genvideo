@@ -17,8 +17,11 @@ export default async function handler(
   try {
     const completion = await openai.createCompletion({
       model: "text-davinci-003",
-      prompt: `What is ${req.query.prompt}`,
-      max_tokens: 128,
+      prompt: `Generate video transcript for topic: ${req.query.prompt}. 
+      It should have three 5s sections and total video transcript length should be around 15s.
+      Each lines should have maximum of 25 characters. 
+      Format the response as JSON object with just texts as properties.`,
+      max_tokens: 256,
       temperature: 0.2
     });
   

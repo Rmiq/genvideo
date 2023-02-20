@@ -1,25 +1,19 @@
 import Head from "next/head";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { createFFmpeg, fetchFile } from "@ffmpeg/ffmpeg";
+import { createFFmpeg, fetchFile, FFmpeg } from "@ffmpeg/ffmpeg";
 import { GetServerSidePropsContext, NextPage } from "next/types";
-
-let ffmpegProgress = {};
-
-const ffmpeg = createFFmpeg({
-  log: true,
-  progress: (params) => {ffmpegProgress = params},
-  corePath: "https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js"
-});
 
 export const getServerSideProps = async (context: GetServerSidePropsContext) => {
 	context.res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
 	context.res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
-  
+
 	return {
 		props: {},
 	};
 };
+
+let ffmpeg = {} as FFmpeg; // Empty initialziation for types
 
 const Home: NextPage = () => {
 	const {
@@ -29,38 +23,64 @@ const Home: NextPage = () => {
 		formState: { errors },
 	} = useForm();
 
-	const [generatedScript, setGeneratedScript] = useState("");
-	const [generatedVideo, setGeneratedVideo] = useState("");
+	const [generatedScript, setGeneratedScript] = useState<any>({}); // TO DO: Fix types for script response 
+	const [generatedVideo, setGeneratedVideo] = useState<string>("");
+	const [generatedVideoProgress, setGeneratedVideoProgress] = useState<Number>(0);
 	const [isLoading, setIsLoading] = useState(false);
 
-  const load = async () => {
-    await ffmpeg.load();
-  }
+	const load = async () => {
+		ffmpeg = createFFmpeg({
+			log: true,
+			progress: (params) => {
+				setGeneratedVideoProgress(Math.round(params.ratio * 100));
+			},
+			corePath: "https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js",
+		});
 
-  useEffect(() => {
-    load();
-  }, [])
+		await ffmpeg.load();
+	};
+
+	useEffect(() => {
+		load();
+	}, []);
 
 	const onSubmit = async (data: any) => {
 		setIsLoading(true);
+		setGeneratedVideoProgress(0);
 		try {
 			const res = await fetch(`/api/generate-text?prompt=${data.prompt}`);
 			const json = await res.json();
-			const cleanResponse = json.replace("\n\n", "");
-			setGeneratedScript(cleanResponse);
+			const script = JSON.parse(json);
+			setGeneratedScript(script);
 
 			try {
 				const res = await fetch(`api/generate-video?topic=${data.prompt}`);
-				const json = await res.json();
-				// setGeneratedVideo(json);
-        ffmpeg.FS('writeFile', 'test.mp4', await fetchFile(json));
-        ffmpeg.FS('writeFile', 'Roboto-Regular.ttf', await fetchFile(`${window.location}/Roboto-Regular.ttf`));
-        await ffmpeg.run('-i', 'test.mp4', '-vf', `drawtext=fontfile='Roboto-Regular.ttf':text='${cleanResponse}':fontcolor=white:fontsize=24:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=(h-text_h)/2:enable='between(t,0,3)'`, '-y', 'out.mp4');
-        const dataV = ffmpeg.FS('readFile', 'out.mp4');
-        const url = URL.createObjectURL(new Blob([dataV.buffer], { type: 'image/gif' }));
-				setIsLoading(false);
-        setGeneratedVideo(url);
+				const video = await res.json();
 
+        // Load files
+				ffmpeg.FS("writeFile", "test.mp4", await fetchFile(video.url));
+				ffmpeg.FS("writeFile", "Roboto-Regular.ttf", await fetchFile(`${window.location}/Roboto-Regular.ttf`));
+
+        // Edit Video
+        const drawTexts : any = [];
+        const MAX_TIME = video.duration;
+        const MAX_SECTIONS = Object.keys(script).length;
+
+				Object.keys(script).map((key, index) => {
+          const startTime = (MAX_TIME * (index))/MAX_SECTIONS;
+          const endTime = (MAX_TIME * (index + 1))/MAX_SECTIONS;
+          const cleanText = script[key].replace(/\'/g,"");
+          drawTexts.push(`drawtext=fontfile='Roboto-Regular.ttf':text='${cleanText}':fontcolor=white:fontsize=24:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=(h-text_h)/2:enable='between(t,${startTime},${endTime})'`);
+        });
+
+				const ffmpegParams = ["-i", "test.mp4", "-vf", `[in]${drawTexts.join(',')}[out]`, "-y", "out.mp4"];
+				await ffmpeg.run(...ffmpegParams);
+
+        // Get edited video
+				const dataV = ffmpeg.FS("readFile", "out.mp4");
+				const url = URL.createObjectURL(new Blob([dataV.buffer], { type: "image/gif" }));
+				setIsLoading(false);
+				setGeneratedVideo(url);
 			} catch (err) {
 				console.log(err);
 			}
@@ -78,22 +98,34 @@ const Home: NextPage = () => {
 				<link rel="icon" href="/favicon.ico" />
 			</Head>
 
-			<main className="container p-16">
-				<h1 className="text-3xl font-bold">GenVideo</h1>
-				<form className="flex flex-col my-8" onSubmit={handleSubmit(onSubmit)}>
-					<label>Video topic</label>
-					<input placeholder="i.e. bitcoin" className="input" {...register("prompt", { required: true })} />
-					<input type="submit" className="btn submit my-4" value={isLoading ? "Loading..." : "Generate script"} />
-				</form>
-				<div className="flex">
-					<div className="min-w-[50%] pr-8">
-						<p>Generated script:</p>
-						<textarea readOnly={true} className="textarea w-full min-h-[400px]" value={generatedScript} />
+			<main className="container h-screen p-16 flex m-auto">
+				<div className="flex flex-col min-w-[50%]">
+					<h1 className="text-3xl font-bold">GenVideo</h1>
+					<form className="my-4" onSubmit={handleSubmit(onSubmit)}>
+						<label>Generate video with topic:</label>
+						<input placeholder="i.e. bitcoin" className="input input-bordered mx-4" {...register("prompt", { required: true })} />
+						<input type="submit" className="btn submit my-4" disabled={isLoading} value={"Generate"} />
+					</form>
+
+					<div className="pr-8">
+						<p className="pb-4">Generated script:</p>
+						{Object.keys(generatedScript).length > 0 &&
+							Object.keys(generatedScript).map((key, index) => (
+								<div key={index}>
+									<p >{generatedScript[key]}</p>
+								</div>
+							))}
 					</div>
-					<div className="min-w-[50%] pl-8">
-						<p>Generated video:</p>
+				</div>
+				<div className="min-w-[50%] py-8 flex justify-center items-center">
+					{isLoading ? (
+						// @ts-ignore
+						<div className="radial-progress" style={{ "--value": generatedVideoProgress }}>
+							{generatedVideoProgress}%
+						</div>
+					) : (
 						<video controls crossOrigin="anonymous" src={generatedVideo} className="max-w-[400px]" />
-					</div>
+					)}
 				</div>
 			</main>
 		</div>
