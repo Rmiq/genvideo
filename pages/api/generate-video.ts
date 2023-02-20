@@ -1,5 +1,5 @@
-import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "pexels";
+import { NextApiRequest, NextApiResponse } from "next";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
 
@@ -11,7 +11,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 	await client.videos.search({ query, per_page: 1, orientation: orientation }).then((videos) => {
     // @ts-ignore
-    videoURL = videos.videos[0].video_files[0].link;
+    videoURL = videos.videos[0].video_files[videos.videos[0].video_files.length-1].link;
+    // console.log(videos.videos[0].video_files)
 	});
 
 	res.status(200).json(videoURL);

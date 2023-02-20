@@ -1,11 +1,14 @@
-import type { GetServerSidePropsContext, NextPage } from "next";
 import Head from "next/head";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { createFFmpeg, fetchFile } from "@ffmpeg/ffmpeg";
+import { GetServerSidePropsContext } from "next/types";
+
+let ffmpegProgress = {};
 
 const ffmpeg = createFFmpeg({
   log: true,
+  progress: (params) => {ffmpegProgress = params},
   corePath: "https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js"
 });
 
@@ -49,13 +52,13 @@ const Home: NextPage = () => {
 			try {
 				const res = await fetch(`api/generate-video?topic=${data.prompt}`);
 				const json = await res.json();
-				setIsLoading(false);
-				setGeneratedVideo(json);
+				// setGeneratedVideo(json);
         ffmpeg.FS('writeFile', 'test.mp4', await fetchFile(json));
-        // ffmpeg.FS('writeFile', 'font.woff', await fetchFile('./font.woff'));
-        await ffmpeg.run('-i', 'test.mp4', '-vf', "drawtext=text='Stack Overflow':font='Times New Roman':fontcolor=white:fontsize=24:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=(h-text_h)/2", '-codec:a', 'copy', 'out.mp4');
+        ffmpeg.FS('writeFile', 'Roboto-Regular.ttf', await fetchFile(`${window.location}/Roboto-Regular.ttf`));
+        await ffmpeg.run('-i', 'test.mp4', '-vf', `drawtext=fontfile='Roboto-Regular.ttf':text='${cleanResponse}':fontcolor=white:fontsize=24:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=(h-text_h)/2:enable='between(t,0,3)'`, '-y', 'out.mp4');
         const dataV = ffmpeg.FS('readFile', 'out.mp4');
         const url = URL.createObjectURL(new Blob([dataV.buffer], { type: 'image/gif' }));
+				setIsLoading(false);
         setGeneratedVideo(url);
 
 			} catch (err) {
@@ -89,7 +92,7 @@ const Home: NextPage = () => {
 					</div>
 					<div className="min-w-[50%] pl-8">
 						<p>Generated video:</p>
-						<video controls src={generatedVideo} className="max-w-[400px]" />
+						<video controls crossOrigin="anonymous" src={generatedVideo} className="max-w-[400px]" />
 					</div>
 				</div>
 			</main>
