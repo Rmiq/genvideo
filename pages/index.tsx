@@ -3,8 +3,27 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { createFFmpeg, fetchFile, FFmpeg } from "@ffmpeg/ffmpeg";
 import { GetServerSidePropsContext, NextPage } from "next/types";
+import { createServerSupabaseClient } from "@supabase/auth-helpers-nextjs";
 
 export const getServerSideProps = async (context: GetServerSidePropsContext) => {
+	const supabase = createServerSupabaseClient(context);
+
+	const {
+		data: { session },
+	} = await supabase.auth.getSession();
+
+	if (!session)
+		return {
+			redirect: {
+				destination: "/signin",
+				permanent: false,
+			},
+		};
+
+  const { data } = await supabase.from('users').select('role');
+  console.log(data);
+  
+	// Enable experimental mode for WASM
 	context.res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
 	context.res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
 
@@ -23,7 +42,7 @@ const Home: NextPage = () => {
 		formState: { errors },
 	} = useForm();
 
-	const [generatedScript, setGeneratedScript] = useState<any>({}); // TO DO: Fix types for script response 
+	const [generatedScript, setGeneratedScript] = useState<any>({}); // TO DO: Fix types for script response
 	const [generatedVideo, setGeneratedVideo] = useState<string>("");
 	const [generatedVideoProgress, setGeneratedVideoProgress] = useState<Number>(0);
 	const [isLoading, setIsLoading] = useState(false);
@@ -57,26 +76,28 @@ const Home: NextPage = () => {
 				const res = await fetch(`api/generate-video?topic=${data.prompt}`);
 				const video = await res.json();
 
-        // Load files
+				// Load files
 				ffmpeg.FS("writeFile", "test.mp4", await fetchFile(video.url));
 				ffmpeg.FS("writeFile", "Roboto-Regular.ttf", await fetchFile(`${window.location}/Roboto-Regular.ttf`));
 
-        // Edit Video
-        const drawTexts : any = [];
-        const MAX_TIME = video.duration;
-        const MAX_SECTIONS = Object.keys(script).length;
+				// Edit Video
+				const drawTexts: any = [];
+				const MAX_TIME = video.duration;
+				const MAX_SECTIONS = Object.keys(script).length;
 
 				Object.keys(script).map((key, index) => {
-          const startTime = (MAX_TIME * (index))/MAX_SECTIONS;
-          const endTime = (MAX_TIME * (index + 1))/MAX_SECTIONS;
-          const cleanText = script[key].replace(/\'/g,"");
-          drawTexts.push(`drawtext=fontfile='Roboto-Regular.ttf':text='${cleanText}':fontcolor=white:fontsize=24:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=(h-text_h)/2:enable='between(t,${startTime},${endTime})'`);
-        });
+					const startTime = (MAX_TIME * index) / MAX_SECTIONS;
+					const endTime = (MAX_TIME * (index + 1)) / MAX_SECTIONS;
+					const cleanText = script[key].replace(/\'/g, "");
+					drawTexts.push(
+						`drawtext=fontfile='Roboto-Regular.ttf':text='${cleanText}':fontcolor=white:fontsize=24:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=(h-text_h)/2:enable='between(t,${startTime},${endTime})'`
+					);
+				});
 
-				const ffmpegParams = ["-i", "test.mp4", "-vf", `[in]${drawTexts.join(',')}[out]`, "-y", "out.mp4"];
+				const ffmpegParams = ["-i", "test.mp4", "-vf", `[in]${drawTexts.join(",")}[out]`, "-y", "out.mp4"];
 				await ffmpeg.run(...ffmpegParams);
 
-        // Get edited video
+				// Get edited video
 				const dataV = ffmpeg.FS("readFile", "out.mp4");
 				const url = URL.createObjectURL(new Blob([dataV.buffer], { type: "image/gif" }));
 				setIsLoading(false);
@@ -112,7 +133,7 @@ const Home: NextPage = () => {
 						{Object.keys(generatedScript).length > 0 &&
 							Object.keys(generatedScript).map((key, index) => (
 								<div key={index}>
-									<p >{generatedScript[key]}</p>
+									<p>{generatedScript[key]}</p>
 								</div>
 							))}
 					</div>
